@@ -28,6 +28,12 @@ const RATE_WINDOW = 5 * 60_000;
 const SESSION_WINDOW = 15 * 60_000;
 // How long already-counted message.ids are remembered (so copies across files aren't counted twice).
 const SEEN_TTL = 45 * 24 * 3600_000;
+// Diminishing returns: within each 10-minute window the first INCOME_CAP TK count in full, and anything above
+// grows with the square root. A single session rarely gets there; many sessions running in parallel do.
+const INCOME_WINDOW = 10 * 60_000;
+const INCOME_CAP = 100_000;
+const BUCKET_TTL = 3 * 24 * 3600_000;
+const effectiveIncome = (x) => (x <= INCOME_CAP ? x : INCOME_CAP * Math.sqrt(x / INCOME_CAP));
 
 // ---------- Saved game ----------
 
@@ -79,6 +85,7 @@ const ledger = loadLedger();
 const files = new Map();     // path -> { offset, rest }
 const seen = new Map();      // message.id -> timestamp (Claude Code repeats the same response across several lines)
 const sessions = new Map();  // sessionId -> { project, total, lastTs, model }
+const buckets = new Map();   // 10-minute window index -> raw TK produced in it (before diminishing returns)
 const events = [];
 const raw = { input: 0, output: 0, cacheWrite: 0, cacheRead: 0, ...ledger?.raw };
 let recent = [];
@@ -86,10 +93,13 @@ let earned = ledger?.earned || 0;
 let dirty = !ledger;
 for (const [file, offset] of Object.entries(ledger?.files || {})) files.set(file, { offset, rest: Buffer.alloc(0) });
 for (const [id, ts] of Object.entries(ledger?.seen || {})) seen.set(id, ts);
+for (const [w, tk] of Object.entries(ledger?.buckets || {})) buckets.set(Number(w), tk);
 
 function writeLedger() {
   const cutoff = Date.now() - SEEN_TTL;
   for (const [id, ts] of seen) if (ts < cutoff) seen.delete(id);
+  const oldest = Math.floor((Date.now() - BUCKET_TTL) / INCOME_WINDOW);
+  for (const w of buckets.keys()) if (w < oldest) buckets.delete(w);
   const offsets = {};
   // Only complete lines are saved: any partial line is re-read next time.
   for (const [file, rec] of files) offsets[file] = rec.offset - rec.rest.length;
@@ -99,6 +109,7 @@ function writeLedger() {
     raw,
     files: offsets,
     seen: Object.fromEntries(seen),
+    buckets: Object.fromEntries(buckets),
   }, false);
   dirty = false;
 }
@@ -142,20 +153,24 @@ function ingest(line, file) {
     raw[k] += parts[k];
     tk += parts[k] * WEIGHTS[k];
   }
-  earned += tk;
+  const w = Math.floor(ts / INCOME_WINDOW);
+  const before = buckets.get(w) || 0;
+  buckets.set(w, before + tk);
+  const gained = effectiveIncome(before + tk) - effectiveIncome(before);
+  earned += gained;
 
   const id = d.sessionId || path.basename(file, '.jsonl');
   const project = d.cwd ? path.basename(d.cwd) : path.basename(path.dirname(file));
   const s = sessions.get(id) || { project, total: 0, lastTs: 0, model: '' };
   s.project = project;
-  s.total += tk;
+  s.total += gained;
   s.lastTs = Math.max(s.lastTs, ts);
   s.model = msg.model || s.model;
   sessions.set(id, s);
 
-  recent.push({ ts, tk });
+  recent.push({ ts, tk: gained });
   if (ready) {
-    events.push({ seq: ++seq, tk: Math.round(tk), project, ts });
+    events.push({ seq: ++seq, tk: Math.round(gained), project, ts });
     if (events.length > 200) events.shift();
   }
 }
@@ -233,6 +248,16 @@ function wallet() {
   return Math.floor(STARTER_TK + earned - save.spent);
 }
 
+function incomeStatus(now) {
+  const windowTk = buckets.get(Math.floor(now / INCOME_WINDOW)) || 0;
+  return {
+    cap: INCOME_CAP,
+    windowMinutes: INCOME_WINDOW / 60_000,
+    windowTk: Math.round(windowTk),
+    efficiency: windowTk ? effectiveIncome(windowTk) / windowTk : 1,
+  };
+}
+
 function status(since = 0) {
   const now = Date.now();
   const all = [...sessions.values()];
@@ -245,6 +270,7 @@ function status(since = 0) {
     starter: STARTER_TK,
     spent: save.spent,
     rate: Math.round(rateTk / (RATE_WINDOW / 60_000)),
+    income: incomeStatus(now),
     generating: lastTs > 0 && now - lastTs < GENERATING_WINDOW,
     lastTokenAgo: lastTs ? now - lastTs : null,
     processes: claudeProcs.length,

@@ -44,6 +44,10 @@
     #claude.gen { color: var(--green); }
     @keyframes pulse { 50% { transform: scale(1.5); opacity: .6; } }
     #rate { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    #saturation { margin-top: 6px; font-size: 12px; color: var(--gold); line-height: 1.35; }
+    #saturation b { color: var(--text); }
+    .meter { height: 4px; background: rgba(255,255,255,.08); margin-top: 4px; }
+    .meter i { display: block; height: 100%; background: var(--gold); }
     #sessions { margin-top: 8px; display: grid; gap: 3px; font-size: 12px; }
     #sessions div { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); }
     #sessions b { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -172,6 +176,7 @@
     <div class="wallet"><span class="gem">◆</span><span id="wallet">—</span><small>TK</small></div>
     <div id="claude"><span class="dot"></span><span id="claude-text">Looking for Claude sessions…</span></div>
     <div id="rate">0 TK/min</div>
+    <div id="saturation" hidden></div>
     <div id="sessions"></div>
     <div class="formula" id="formula"></div>
   </div>

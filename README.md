@@ -74,6 +74,7 @@ flowchart LR
   | Cache writes | × 0.25 |
   | Cache reads | × 0.02 |
 
+- **Diminishing returns** keep parallel sessions in check: in every 10-minute window, the first 100K TK count in full and anything above grows with the square root (4× the tokens → 2× the TK). A single session rarely hits the cap; ten agents running at once do, and the HUD shows a *Saturated* warning with your current efficiency.
 - It also detects open `claude` processes. If Claude produced tokens in the last 90 seconds, **overclock** kicks in.
 - Purchases are validated server-side. Progress lives in `save.json`; earned TK live in `tokens.json`, together with read offsets, so they survive restarts and Claude Code cleaning up old conversations without ever being counted twice.
 

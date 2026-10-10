@@ -1066,10 +1066,21 @@ function renderClaude(s) {
       ? `${s.processes} Claude session${s.processes > 1 ? 's' : ''} open · idle`
       : 'No Claude sessions open';
   $('rate').textContent = `${fmt(s.rate)} TK/min · earned ${fmt(s.earned)} · spent ${fmt(s.spent)}`;
+  // Diminishing returns kick in when too many tokens are burned in the same 10-minute window.
+  const inc = s.income;
+  const saturated = inc.efficiency < 0.98;
+  $('saturation').hidden = !saturated;
+  if (saturated) {
+    $('saturation').innerHTML = `⚠ Saturated: <b>${Math.round(inc.efficiency * 100)}%</b> efficiency. ` +
+      `Too many tokens at once (${fmt(inc.windowTk)} in ${inc.windowMinutes} min)` +
+      `<div class="meter"><i style="width:${Math.round(inc.efficiency * 100)}%"></i></div>`;
+  }
+  if (saturated && !state.saturated) toast('<b>Income saturated</b> · parallel sessions give diminishing returns');
+  state.saturated = saturated;
   $('sessions').innerHTML = s.sessions.map((x) =>
     `<div><b>${escapeHtml(x.project)}</b><span>${fmt(x.total)} TK · ${ago(x.ago)}</span></div>`).join('');
   const w = s.weights;
-  $('formula').textContent = `TK = input + output + ${w.cacheWrite * 100}% cache writes + ${w.cacheRead * 100}% cache reads, since ${new Date(s.since).toLocaleDateString('en-US')} (+${fmt(s.starter)} starter)`;
+  $('formula').textContent = `TK = input + output + ${w.cacheWrite * 100}% cache writes + ${w.cacheRead * 100}% cache reads, since ${new Date(s.since).toLocaleDateString('en-US')} (+${fmt(s.starter)} starter). The first ${fmt(inc.cap)} TK every ${inc.windowMinutes} min count in full, then returns diminish.`;
 }
 
 function onTokenEvents(events) {
