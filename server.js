@@ -293,8 +293,23 @@ async function readBody(req) {
 
 const int = (v, min) => (Number.isFinite(v) ? Math.max(min, Math.floor(v)) : null);
 
-const server = http.createServer(async (req, res) => {
+// Only requests addressed to this server by a local name are accepted. This blocks DNS rebinding,
+// where a web page points its own domain at 127.0.0.1 to read the API.
+const ALLOWED_HOSTS = new Set([`localhost:${PORT}`, `127.0.0.1:${PORT}`, `[::1]:${PORT}`]);
+const ALLOWED_ORIGINS = new Set([...ALLOWED_HOSTS].map((h) => `http://${h}`));
+
+// Writes must be JSON sent by the game itself. Other sites can't send a cross-origin JSON POST
+// without a CORS preflight (which this server never approves), and a mismatched Origin is rejected.
+function isTrustedWrite(req) {
+  const type = (req.headers['content-type'] || '').split(';')[0].trim();
+  const origin = req.headers.origin;
+  return type === 'application/json' && (!origin || ALLOWED_ORIGINS.has(origin));
+}
+
+async function handle(req, res) {
+  if (!ALLOWED_HOSTS.has(req.headers.host)) return send(res, 403, { error: 'Forbidden host' });
   const url = new URL(req.url, 'http://localhost');
+  if (req.method === 'POST' && !isTrustedWrite(req)) return send(res, 403, { error: 'Forbidden' });
 
   if (url.pathname === '/api/status' && req.method === 'GET') {
     return send(res, 200, status(Number(url.searchParams.get('since')) || 0));
@@ -345,13 +360,27 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
 
-  const rel = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname).replace(/^\/+/, '');
+  let rel;
+  try {
+    rel = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname).replace(/^\/+/, '');
+  } catch {
+    return send(res, 400, { error: 'Bad request' });
+  }
   const file = path.resolve(PUBLIC_DIR, rel);
   if (!file.startsWith(PUBLIC_DIR + path.sep)) return send(res, 403, { error: 'Forbidden' });
   fs.readFile(file, (err, data) => {
     if (err) return send(res, 404, { error: 'Not found' });
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
     res.end(data);
+  });
+}
+
+// A failure in one request must never bring the whole server down.
+const server = http.createServer((req, res) => {
+  handle(req, res).catch((err) => {
+    console.error(err);
+    if (!res.headersSent) send(res, 500, { error: 'Internal error' });
+    else res.end();
   });
 });
 
