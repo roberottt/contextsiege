@@ -1,0 +1,8 @@
+# Local game data: your progress and earned tokens (includes paths to your projects)
+save.json
+save.json.tmp
+tokens.json
+tokens.json.tmp
+
+node_modules/
+.DS_Store

@@ -1,0 +1,13 @@
+{
+  "name": "context-siege",
+  "version": "1.0.0",
+  "description": "Juego incremental de defensa orbital que se alimenta de los tokens que consume Claude Code",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
