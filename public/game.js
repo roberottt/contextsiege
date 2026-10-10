@@ -576,6 +576,7 @@ function startWave(w) {
   const boss = waveInLevel(w) === WAVES_PER_LEVEL;
   banner(`LEVEL ${levelOf(w)} · WAVE ${waveInLevel(w)}/${WAVES_PER_LEVEL}`, boss ? 'A boss is approaching' : `${game.waveTotal} enemies in orbit`, 1.8);
   beep(330, 0.25, 'triangle', 0.05, 330);
+  renderStats();
   saveProgress();
 }
 
@@ -618,6 +619,7 @@ function showIntermission(kind) {
     : '';
   $('intermission').classList.add('show');
   updateIntermission();
+  renderStats();
   saveProgress();
 }
 
@@ -1460,6 +1462,8 @@ if (DEBUG) {
     continue: continueFromIntermission,
     coreDamageLog,
     hangar(id) { setShopTab('hangar'); previewShip(id); preview.render(1 / 30); },
+    // Building blocks for staging scenes (e.g. README screenshots).
+    THREE, scene, camera, renderer, buildShip, showIntermission, setShopTab,
     step(seconds, dt = 1 / 30) {
       for (let s = 0; s < seconds; s += dt) {
         time += dt;
