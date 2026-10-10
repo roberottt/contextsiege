@@ -169,3 +169,7 @@ docs/               README images
 **Does it work on Windows?** Token tracking should work, but detecting open Claude sessions relies on `ps`, so the "sessions open" indicator won't. It's untested there.
 
 **Why can't I host it online for friends?** The game counts the tokens of whoever runs the server, by reading their local Claude Code transcripts. Each player runs their own copy.
+
+## Contributing
+
+Ideas, bug fixes and new ships are welcome! Fork the repo and open a pull request against `main`. Direct pushes are restricted, and every pull request is reviewed and merged by the maintainer.
