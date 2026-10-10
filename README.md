@@ -17,6 +17,12 @@ Code with Claude → earn TK → upgrade your fleet → push deeper into the sie
 
 ---
 
+## Why I built this
+
+I built it because I was bored waiting for Claude to finish the tasks I sent it.
+
+So I turned the wait into the game itself: the longer Claude works, the more tokens it burns, and the stronger my fleet gets. Now, while Claude is busy, I have something to do, and the waiting even pays off.
+
 ## The idea
 
 Enemies circle your core in rings and, like classic Space Invaders, every few seconds they step forward and reverse direction. Except here they step **toward the center**.
